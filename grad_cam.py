@@ -10,8 +10,8 @@ class FeatureExtractor():
     """ Class for extracting activations and
     registering gradients from targetted intermediate layers """
     def __init__(self, model, target_layers):
-        self.model = model
-        self.target_layers = target_layers
+        self.model = model # model.leyer4
+        self.target_layers = target_layers # ["2"]
         self.gradients = []
 
     def save_gradient(self, grad):
@@ -106,18 +106,18 @@ class GradCam:
         self.feature_module.zero_grad()
         self.model.zero_grad()
         one_hot.backward(retain_graph=True)
-
+        # 获取最后一层的gradients
         grads_val = self.extractor.get_gradients()[-1].cpu().data.numpy()
-
+        # 获取最后一层的输出
         target = features[-1]
         target = target.cpu().data.numpy()[0, :]
-
-        weights = np.mean(grads_val, axis=(2, 3))[0, :]
+        # 对gradient做avgpool
+        weights = np.mean(grads_val, axis=(2, 3))[0, :] #[C,]
         cam = np.zeros(target.shape[1:], dtype=np.float32)
-
+        # 权重和特征图进行叠加得到
         for i, w in enumerate(weights):
             cam += w * target[i, :, :]
-
+        # 进行relu()
         cam = np.maximum(cam, 0)
         cam = cv2.resize(cam, input_img.shape[2:])
         cam = cam - np.min(cam)
@@ -128,7 +128,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--use-cuda', action='store_true', default=False,
                         help='Use NVIDIA GPU acceleration')
-    parser.add_argument('--image-path', type=str, default='./examples/both.png',
+    parser.add_argument('--image-path', type=str, default='./image/cat.jpg',
                         help='Input image path')
     args = parser.parse_args()
     args.use_cuda = args.use_cuda and torch.cuda.is_available()
