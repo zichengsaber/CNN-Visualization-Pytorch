@@ -21,6 +21,7 @@ class FeatureExtractor():
         outputs = []
         self.gradients = []
         for name, module in self.model._modules.items():
+            # 在最后一层 layer4.2输出后
             x = module(x)
             if name in self.target_layers:
                 x.register_hook(self.save_gradient)
@@ -47,8 +48,8 @@ class ModelOutputs():
             if module == self.feature_module:
                 target_activations, x = self.feature_extractor(x)
             elif "avgpool" in name.lower():
-                x = module(x)
-                x = x.view(x.size(0),-1)
+                x = module(x) #[1,2048,1,1]
+                x = x.view(x.size(0),-1) #[1,2048]
             else:
                 x = module(x)
 
@@ -88,8 +89,8 @@ class GradCam:
 
     def __call__(self, input_img, target_category=None):
         if self.cuda:
-            input_img = input_img.cuda()
-
+            input_img = input_img.cuda() #[1,3,224,224]
+        # list([1,2048,7,7]),[1,1000]
         features, output = self.extractor(input_img)
 
         if target_category == None:
@@ -119,7 +120,7 @@ class GradCam:
             cam += w * target[i, :, :]
         # 进行relu()
         cam = np.maximum(cam, 0)
-        cam = cv2.resize(cam, input_img.shape[2:])
+        cam = cv2.resize(cam, (input_img.shape[3],input_img.shape[2])) # [W,H]
         cam = cam - np.min(cam)
         cam = cam / np.max(cam)
         return cam
@@ -160,7 +161,7 @@ if __name__ == '__main__':
     model = models.resnet50(pretrained=True)
     grad_cam = GradCam(model=model, feature_module=model.layer4, \
                        target_layer_names=["2"], use_cuda=args.use_cuda)
-
+    print(model.eval()) 
     img = cv2.imread(args.image_path, 1)
     # Opencv loads as BGR:
     img = cv2.cvtColor(img,cv2.COLOR_BGR2RGB)
@@ -172,7 +173,7 @@ if __name__ == '__main__':
     target_category = None
     grayscale_cam = grad_cam(input_img, target_category)
 
-    grayscale_cam = cv2.resize(grayscale_cam, (img.shape[1], img.shape[0]))
+    grayscale_cam = cv2.resize(grayscale_cam, (img.shape[1], img.shape[0])) # 按照[W,H]去放缩
     cam = show_cam_on_image(img, grayscale_cam)
 
 
